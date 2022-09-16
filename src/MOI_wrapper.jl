@@ -54,8 +54,8 @@ function Base.getindex(A::BlockSolution, i::Integer)
 end
 
 mutable struct Optimizer{T} <: MOI.AbstractOptimizer
-    objconstant::T
-    objsign::Int
+    objective_constant::T
+    objective_sign::Int
     blockdims::Vector{Int}
     varmap::Vector{Tuple{Int, Int, Int}} # Variable Index vi -> blk, i, j
     b::Vector{T}
@@ -170,16 +170,16 @@ function MOI.get(optimizer::Optimizer, ::MOI.SolveTimeSec)
 end
 
 function MOI.is_empty(optimizer::Optimizer)
-    return iszero(optimizer.objconstant) &&
-        optimizer.objsign == 1 &&
+    return iszero(optimizer.objective_constant) &&
+        optimizer.objective_sign == 1 &&
         isempty(optimizer.blockdims) &&
         isempty(optimizer.varmap) &&
         isempty(optimizer.b) &&
         optimizer.elemdata == []
 end
 function MOI.empty!(optimizer::Optimizer{T}) where T
-    optimizer.objconstant = zero(T)
-    optimizer.objsign = 1
+    optimizer.objective_constant = zero(T)
+    optimizer.objective_sign = 1
     empty!(optimizer.blockdims)
     empty!(optimizer.varmap)
     empty!(optimizer.b)
@@ -225,37 +225,6 @@ end
 function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike; kws...)
     return MOIU.default_copy_to(dest, src; kws...)
 end
-MOIU.supports_allocate_load(::Optimizer, copy_names::Bool) = !copy_names
-
-function MOIU.allocate(optimizer::Optimizer, ::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
-    # To be sure that it is done before load(optimizer, ::ObjectiveFunction, ...), we do it in allocate
-    optimizer.objsign = sense == MOI.MIN_SENSE ? -1 : 1
-end
-function MOIU.allocate(::Optimizer, ::MOI.ObjectiveFunction, ::Union{MOI.VariableIndex, MOI.ScalarAffineFunction}) end
-
-function MOIU.load(::Optimizer, ::MOI.ObjectiveSense, ::MOI.OptimizationSense) end
-# Loads objective coefficient α * vi
-function load_objective_term!(optimizer::Optimizer{T}, α, vi::MOI.VariableIndex) where {T}
-    blk, i, j = varmap(optimizer, vi)
-    coef = optimizer.objsign * α
-    if i != j
-        coef /= 2
-    end
-    # in SDP format, it is max and in MPB Conic format it is min
-    inputElement(optimizer, 0, blk, i, j, convert(T, coef))
-end
-function MOIU.load(optimizer::Optimizer, ::MOI.ObjectiveFunction, f::MOI.ScalarAffineFunction)
-    obj = MOIU.canonical(f)
-    optimizer.objconstant = f.constant
-    for t in obj.terms
-        if !iszero(t.coefficient)
-            load_objective_term!(optimizer, t.coefficient, t.variable)
-        end
-    end
-end
-function MOIU.load(optimizer::Optimizer{T}, ::MOI.ObjectiveFunction, f::MOI.VariableIndex) where T
-    load_objective_term!(optimizer, one(T), f.variable)
-end
 
 function new_block(optimizer::Optimizer, set::MOI.Nonnegatives)
     push!(optimizer.blockdims, -MOI.dimension(set))
@@ -271,62 +240,6 @@ function new_block(optimizer::Optimizer, set::MOI.PositiveSemidefiniteConeTriang
     for i in 1:set.side_dimension
         for j in 1:i
             push!(optimizer.varmap, (blk, i, j))
-        end
-    end
-end
-
-function MOIU.allocate_constrained_variables(optimizer::Optimizer,
-                                             set::SupportedSets)
-    offset = length(optimizer.varmap)
-    new_block(optimizer, set)
-    ci = MOI.ConstraintIndex{MOI.VectorOfVariables, typeof(set)}(offset + 1)
-    return [MOI.VariableIndex(i) for i in offset .+ (1:MOI.dimension(set))], ci
-end
-
-function MOIU.load_constrained_variables(
-    optimizer::Optimizer, vis::Vector{MOI.VariableIndex},
-    ci::MOI.ConstraintIndex{MOI.VectorOfVariables},
-    set::SupportedSets)
-end
-
-function MOIU.allocate_variables(model::Optimizer, nvars)
-end
-
-function MOIU.load_variables(optimizer::Optimizer{T}, nvars) where T
-    @assert nvars == length(optimizer.varmap)
-    dummy = isempty(optimizer.b)
-    if dummy
-        optimizer.b = [one(T)]
-        optimizer.blockdims = [optimizer.blockdims; -1]
-    end
-    if dummy
-        inputElement(optimizer, 1, length(optimizer.blockdims), 1, 1, one(T))
-    end
-end
-
-function MOIU.allocate_constraint(optimizer::Optimizer{T},
-                                  func::MOI.ScalarAffineFunction,
-                                  set::MOI.EqualTo) where T
-    push!(optimizer.b, MOI.constant(set))
-    return AFFEQ{T}(length(optimizer.b))
-end
-
-function MOIU.load_constraint(m::Optimizer{T}, ci::AFFEQ,
-                              f::MOI.ScalarAffineFunction, s::MOI.EqualTo) where T
-    if !iszero(MOI.constant(f))
-        throw(MOI.ScalarFunctionConstantNotZero{
-            T, MOI.ScalarAffineFunction{T}, MOI.EqualTo{T}}(
-                MOI.constant(f)))
-    end
-    f = MOIU.canonical(f) # sum terms with same variables and same outputindex
-    for t in f.terms
-        if !iszero(t.coefficient)
-            blk, i, j = varmap(m, t.variable)
-            coef = t.coefficient
-            if i != j
-                coef /= 2
-            end
-            inputElement(m, ci.value, blk, i, j, convert(T, coef))
         end
     end
 end
@@ -434,12 +347,12 @@ end
 MOI.get(m::Optimizer, ::MOI.ResultCount) = 1
 function MOI.get(m::Optimizer, attr::MOI.ObjectiveValue)
     MOI.check_result_index_bounds(m, attr)
-    return m.objsign * m.primalobj + m.objconstant
+    return m.objective_sign * m.primalobj + m.objective_constant
 end
 
 function MOI.get(m::Optimizer, attr::MOI.DualObjectiveValue)
     MOI.check_result_index_bounds(m, attr)
-    return m.objsign * m.dualobj + m.objconstant
+    return m.objective_sign * m.dualobj + m.objective_constant
 end
 struct PrimalSolutionMatrix <: MOI.AbstractModelAttribute end
 MOI.is_set_by_optimize(::PrimalSolutionMatrix) = true
@@ -511,3 +424,96 @@ function MOI.get(optimizer::Optimizer, attr::MOI.ConstraintDual, ci::AFFEQ)
     MOI.check_result_index_bounds(optimizer, attr)
     return -MOI.get(optimizer, DualSolutionVector())[ci.value]
 end
+
+#Useless?
+#=
+MOIU.supports_allocate_load(::Optimizer, copy_names::Bool) = !copy_names
+
+function MOIU.allocate(optimizer::Optimizer, ::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
+    # To be sure that it is done before load(optimizer, ::ObjectiveFunction, ...), we do it in allocate
+    optimizer.objective_sign = sense == MOI.MIN_SENSE ? -1 : 1
+end
+function MOIU.allocate(::Optimizer, ::MOI.ObjectiveFunction, ::Union{MOI.VariableIndex, MOI.ScalarAffineFunction}) end
+
+function MOIU.load(::Optimizer, ::MOI.ObjectiveSense, ::MOI.OptimizationSense) end
+# Loads objective coefficient α * vi
+function load_objective_term!(optimizer::Optimizer{T}, α, vi::MOI.VariableIndex) where {T}
+    blk, i, j = varmap(optimizer, vi)
+    coef = optimizer.objective_sign * α
+    if i != j
+        coef /= 2
+    end
+    # in SDP format, it is max and in MPB Conic format it is min
+    inputElement(optimizer, 0, blk, i, j, convert(T, coef))
+end
+
+function MOIU.load(optimizer::Optimizer, ::MOI.ObjectiveFunction, f::MOI.ScalarAffineFunction)
+    obj = MOIU.canonical(f)
+    optimizer.objective_constant = f.constant
+    for t in obj.terms
+        if !iszero(t.coefficient)
+            load_objective_term!(optimizer, t.coefficient, t.variable)
+        end
+    end
+end
+function MOIU.load(optimizer::Optimizer{T}, ::MOI.ObjectiveFunction, f::MOI.VariableIndex) where T
+    load_objective_term!(optimizer, one(T), f.variable)
+end
+
+function MOIU.allocate_constrained_variables(optimizer::Optimizer,
+                                             set::SupportedSets)
+    offset = length(optimizer.varmap)
+    new_block(optimizer, set)
+    ci = MOI.ConstraintIndex{MOI.VectorOfVariables, typeof(set)}(offset + 1)
+    return [MOI.VariableIndex(i) for i in offset .+ (1:MOI.dimension(set))], ci
+end
+
+function MOIU.load_constrained_variables(
+    optimizer::Optimizer, vis::Vector{MOI.VariableIndex},
+    ci::MOI.ConstraintIndex{MOI.VectorOfVariables},
+    set::SupportedSets)
+end
+
+function MOIU.allocate_variables(model::Optimizer, nvars)
+end
+
+function MOIU.load_variables(optimizer::Optimizer{T}, nvars) where T
+    @assert nvars == length(optimizer.varmap)
+    dummy = isempty(optimizer.b)
+    if dummy
+        optimizer.b = [one(T)]
+        optimizer.blockdims = [optimizer.blockdims; -1]
+    end
+    if dummy
+        inputElement(optimizer, 1, length(optimizer.blockdims), 1, 1, one(T))
+    end
+end
+
+function MOIU.allocate_constraint(optimizer::Optimizer{T},
+                                  func::MOI.ScalarAffineFunction,
+                                  set::MOI.EqualTo) where T
+    push!(optimizer.b, MOI.constant(set))
+    return AFFEQ{T}(length(optimizer.b))
+end
+
+function MOIU.load_constraint(m::Optimizer{T}, ci::AFFEQ,
+                              f::MOI.ScalarAffineFunction, s::MOI.EqualTo) where T
+    if !iszero(MOI.constant(f))
+        throw(MOI.ScalarFunctionConstantNotZero{
+            T, MOI.ScalarAffineFunction{T}, MOI.EqualTo{T}}(
+                MOI.constant(f)))
+    end
+    f = MOIU.canonical(f) # sum terms with same variables and same outputindex
+    for t in f.terms
+        if !iszero(t.coefficient)
+            blk, i, j = varmap(m, t.variable)
+            coef = t.coefficient
+            if i != j
+                coef /= 2
+            end
+            inputElement(m, ci.value, blk, i, j, convert(T, coef))
+        end
+    end
+end
+
+=#
