@@ -203,7 +203,7 @@ end
 function MOI.supports(
     optimizer::Optimizer,
     ::Union{MOI.ObjectiveSense,
-            MOI.ObjectiveFunction{<:Union{MOI.SingleVariable,
+            MOI.ObjectiveFunction{<:Union{MOI.VariableIndex,
                                           MOI.ScalarAffineFunction{T}}}}) where T
     return true
 end
@@ -231,7 +231,7 @@ function MOIU.allocate(optimizer::Optimizer, ::MOI.ObjectiveSense, sense::MOI.Op
     # To be sure that it is done before load(optimizer, ::ObjectiveFunction, ...), we do it in allocate
     optimizer.objsign = sense == MOI.MIN_SENSE ? -1 : 1
 end
-function MOIU.allocate(::Optimizer, ::MOI.ObjectiveFunction, ::Union{MOI.SingleVariable, MOI.ScalarAffineFunction}) end
+function MOIU.allocate(::Optimizer, ::MOI.ObjectiveFunction, ::Union{MOI.VariableIndex, MOI.ScalarAffineFunction}) end
 
 function MOIU.load(::Optimizer, ::MOI.ObjectiveSense, ::MOI.OptimizationSense) end
 # Loads objective coefficient α * vi
@@ -253,7 +253,7 @@ function MOIU.load(optimizer::Optimizer, ::MOI.ObjectiveFunction, f::MOI.ScalarA
         end
     end
 end
-function MOIU.load(optimizer::Optimizer{T}, ::MOI.ObjectiveFunction, f::MOI.SingleVariable) where T
+function MOIU.load(optimizer::Optimizer{T}, ::MOI.ObjectiveFunction, f::MOI.VariableIndex) where T
     load_objective_term!(optimizer, one(T), f.variable)
 end
 
