@@ -223,7 +223,7 @@ function MOI.supports_constraint(
 end
 
 function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike; kws...)
-    return MOIU.automatic_copy_to(dest, src; kws...)
+    return MOIU.default_copy_to(dest, src; kws...)
 end
 MOIU.supports_allocate_load(::Optimizer, copy_names::Bool) = !copy_names
 
