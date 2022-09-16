@@ -18,7 +18,7 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 BinaryProvider = "0.5"
 Convex = "0.14"
 DoubleFloats = "0.9.9"
-MathOptInterface = "0.9.14"
+MathOptInterface = "1"
 Scratch = "1"
 julia = "1.5"
 
