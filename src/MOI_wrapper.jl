@@ -376,7 +376,7 @@ function MOI.get(m::Optimizer, ::MOI.TerminationStatus)
 end
 
 function MOI.get(m::Optimizer, attr::MOI.DualStatus)
-    if attr.N > MOI.get(m, MOI.ResultCount())
+    if attr.result_index > MOI.get(m, MOI.ResultCount())
         return MOI.NO_SOLUTION
     end
     status = m.phasevalue
@@ -404,7 +404,7 @@ function MOI.get(m::Optimizer, attr::MOI.DualStatus)
 end
 
 function MOI.get(m::Optimizer, attr::MOI.PrimalStatus)
-    if attr.N > MOI.get(m, MOI.ResultCount())
+    if attr.result_index > MOI.get(m, MOI.ResultCount())
         return MOI.NO_SOLUTION
     end
     status = m.phasevalue
