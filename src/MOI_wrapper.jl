@@ -249,7 +249,7 @@ function MOIU.load(optimizer::Optimizer, ::MOI.ObjectiveFunction, f::MOI.ScalarA
     optimizer.objconstant = f.constant
     for t in obj.terms
         if !iszero(t.coefficient)
-            load_objective_term!(optimizer, t.coefficient, t.variable_index)
+            load_objective_term!(optimizer, t.coefficient, t.variable)
         end
     end
 end
@@ -321,7 +321,7 @@ function MOIU.load_constraint(m::Optimizer{T}, ci::AFFEQ,
     f = MOIU.canonical(f) # sum terms with same variables and same outputindex
     for t in f.terms
         if !iszero(t.coefficient)
-            blk, i, j = varmap(m, t.variable_index)
+            blk, i, j = varmap(m, t.variable)
             coef = t.coefficient
             if i != j
                 coef /= 2
