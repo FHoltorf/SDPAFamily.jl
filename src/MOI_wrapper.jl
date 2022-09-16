@@ -165,7 +165,7 @@ const RAW_STATUS = Dict(
 function MOI.get(optimizer::Optimizer, ::MOI.RawStatusString)
 	return RAW_STATUS[optimizer.phasevalue]
 end
-function MOI.get(optimizer::Optimizer, ::MOI.SolveTime)
+function MOI.get(optimizer::Optimizer, ::MOI.SolveTimeSec)
 	return optimizer.solve_time
 end
 
