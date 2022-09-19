@@ -222,8 +222,19 @@ function MOI.supports_constraint(
     return true
 end
 
-function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike; kws...)
-    return MOIU.default_copy_to(dest, src; kws...)
+# function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike; kws...)
+#     return MOIU.default_copy_to(dest, src; kws...)
+# end
+
+# something like this according to @blegat
+function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
+    full_input_path = joinpath(dest.tempdir, "model.txt")
+    sdpa = MOI.FileFormats.SDPA.Model()
+    index_map = MOI.copy_to(sdpa, src)
+    open(full_input_path, "w") do io
+        write(io, sdpa)
+    end
+    return index_map
 end
 
 function new_block(optimizer::Optimizer, set::MOI.Nonnegatives)
