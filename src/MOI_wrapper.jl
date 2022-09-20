@@ -3,7 +3,9 @@
 using MathOptInterface
 MOI = MathOptInterface
 const MOIU = MOI.Utilities
-const AFFEQ{T} = MOI.ConstraintIndex{MOI.ScalarAffineFunction{T}, MOI.EqualTo{T}}
+const AFF{T} = MOI.ScalarAffineFunction{T}
+const EQ{T} = MOI.EqualTo{T}
+const AFFEQ{T} = MOI.ConstraintIndex{AFF{T}, EQ{T}}
 
 abstract type AbstractBlockMatrix{T} <: AbstractMatrix{T} end
 function nblocks end
@@ -228,7 +230,7 @@ end
 
 # something like this according to @blegat
 function MOI.copy_to(dest::Optimizer, src::MOI.ModelLike)
-    full_input_path = joinpath(dest.tempdir, "model.txt")
+    full_input_path = joinpath(dest.tempdir, "input.dat-s")
     sdpa = MOI.FileFormats.SDPA.Model()
     index_map = MOI.copy_to(sdpa, src)
     open(full_input_path, "w") do io
@@ -435,96 +437,3 @@ function MOI.get(optimizer::Optimizer, attr::MOI.ConstraintDual, ci::AFFEQ)
     MOI.check_result_index_bounds(optimizer, attr)
     return -MOI.get(optimizer, DualSolutionVector())[ci.value]
 end
-
-#Useless?
-#=
-MOIU.supports_allocate_load(::Optimizer, copy_names::Bool) = !copy_names
-
-function MOIU.allocate(optimizer::Optimizer, ::MOI.ObjectiveSense, sense::MOI.OptimizationSense)
-    # To be sure that it is done before load(optimizer, ::ObjectiveFunction, ...), we do it in allocate
-    optimizer.objective_sign = sense == MOI.MIN_SENSE ? -1 : 1
-end
-function MOIU.allocate(::Optimizer, ::MOI.ObjectiveFunction, ::Union{MOI.VariableIndex, MOI.ScalarAffineFunction}) end
-
-function MOIU.load(::Optimizer, ::MOI.ObjectiveSense, ::MOI.OptimizationSense) end
-# Loads objective coefficient α * vi
-function load_objective_term!(optimizer::Optimizer{T}, α, vi::MOI.VariableIndex) where {T}
-    blk, i, j = varmap(optimizer, vi)
-    coef = optimizer.objective_sign * α
-    if i != j
-        coef /= 2
-    end
-    # in SDP format, it is max and in MPB Conic format it is min
-    inputElement(optimizer, 0, blk, i, j, convert(T, coef))
-end
-
-function MOIU.load(optimizer::Optimizer, ::MOI.ObjectiveFunction, f::MOI.ScalarAffineFunction)
-    obj = MOIU.canonical(f)
-    optimizer.objective_constant = f.constant
-    for t in obj.terms
-        if !iszero(t.coefficient)
-            load_objective_term!(optimizer, t.coefficient, t.variable)
-        end
-    end
-end
-function MOIU.load(optimizer::Optimizer{T}, ::MOI.ObjectiveFunction, f::MOI.VariableIndex) where T
-    load_objective_term!(optimizer, one(T), f.variable)
-end
-
-function MOIU.allocate_constrained_variables(optimizer::Optimizer,
-                                             set::SupportedSets)
-    offset = length(optimizer.varmap)
-    new_block(optimizer, set)
-    ci = MOI.ConstraintIndex{MOI.VectorOfVariables, typeof(set)}(offset + 1)
-    return [MOI.VariableIndex(i) for i in offset .+ (1:MOI.dimension(set))], ci
-end
-
-function MOIU.load_constrained_variables(
-    optimizer::Optimizer, vis::Vector{MOI.VariableIndex},
-    ci::MOI.ConstraintIndex{MOI.VectorOfVariables},
-    set::SupportedSets)
-end
-
-function MOIU.allocate_variables(model::Optimizer, nvars)
-end
-
-function MOIU.load_variables(optimizer::Optimizer{T}, nvars) where T
-    @assert nvars == length(optimizer.varmap)
-    dummy = isempty(optimizer.b)
-    if dummy
-        optimizer.b = [one(T)]
-        optimizer.blockdims = [optimizer.blockdims; -1]
-    end
-    if dummy
-        inputElement(optimizer, 1, length(optimizer.blockdims), 1, 1, one(T))
-    end
-end
-
-function MOIU.allocate_constraint(optimizer::Optimizer{T},
-                                  func::MOI.ScalarAffineFunction,
-                                  set::MOI.EqualTo) where T
-    push!(optimizer.b, MOI.constant(set))
-    return AFFEQ{T}(length(optimizer.b))
-end
-
-function MOIU.load_constraint(m::Optimizer{T}, ci::AFFEQ,
-                              f::MOI.ScalarAffineFunction, s::MOI.EqualTo) where T
-    if !iszero(MOI.constant(f))
-        throw(MOI.ScalarFunctionConstantNotZero{
-            T, MOI.ScalarAffineFunction{T}, MOI.EqualTo{T}}(
-                MOI.constant(f)))
-    end
-    f = MOIU.canonical(f) # sum terms with same variables and same outputindex
-    for t in f.terms
-        if !iszero(t.coefficient)
-            blk, i, j = varmap(m, t.variable)
-            coef = t.coefficient
-            if i != j
-                coef /= 2
-            end
-            inputElement(m, ci.value, blk, i, j, convert(T, coef))
-        end
-    end
-end
-
-=#
