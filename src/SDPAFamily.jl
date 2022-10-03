@@ -2,7 +2,7 @@ module SDPAFamily
 using SDPA_jll: SDPA_jll
 using LinearAlgebra # for diag()
 using DelimitedFiles # for writing SDPA input file
-using MathOptInterface
+import MathOptInterface
 const MOI = MathOptInterface
 const MOIB = MOI.Bridges
 using BinaryProvider
@@ -63,7 +63,8 @@ This function converts Windows paths for use via WSL.
 WSLize_path(path) = replace(path, ":" => "") |> x -> replace(x, "\\" => "/") |> x -> "/mnt/"*x |> lowercase
 
 include("params.jl")
-include("MOI_wrapper.jl")
+include("SDPAWriter.jl")
+#include("MOI_wrapper.jl")
 include("file_io.jl")
 include("presolve.jl")
 include("binary_call.jl")

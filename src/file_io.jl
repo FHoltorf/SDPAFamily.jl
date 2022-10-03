@@ -1,15 +1,15 @@
 export read_results!
 
 """
-    read_results!(optimizer::Optimizer{T}, filepath::String, redundant_entries::Vector)
+    read_results!(optimizer::Optimizer, filepath::String, redundant_entries::Vector)
 
 Populates `optimizer` with results in a SDPA-formatted output file specified by `filepath`. Redundant entries corresponding to linearly dependent constraints are set to 0.
 """
 function read_results!(
-    optimizer::Optimizer{T},
+    optimizer::SDPAFamily.Optimizer,
     filepath::String,
     redundant_entries::Vector
-) where T
+)
 
     endswith(filepath, ".dat") || error("Filename '$filepath' must end with .dat")
     getnextline(io::IO) =
@@ -142,12 +142,12 @@ function read_results!(
 end
 
 """
-    inputElement(optimizer::Optimizer, constr_number::Int, blk::Int, i::Int, j::Int, value::T) where T
+    inputElement(optimizer::SDPAFamily.Optimizer, constr_number::Int, blk::Int, i::Int, j::Int, value::T) where T
 
 Stores the constraint data in `optimizer.elemdata` as a vector of tuples. Each tuple corresponds to one line in the SDPA-formatted input file.
 """
 function inputElement(
-    optimizer::Optimizer,
+    optimizer::SDPAFamily.Optimizer,
     constr_number::Int,
     blk::Int,
     i::Int,
@@ -158,13 +158,13 @@ function inputElement(
 end
 
 """
-    initializeSolve(optimizer::Optimizer)
+    initializeSolve(optimizer::SDPAFamily.Optimizer)
 
 Writes problem data into an SDPA-formatted file named `input.dat-s`. `presolve.jl` routine is applied as indicated by `optimizer.presolve`.
 
 Returns a vector of indices for redundant constraints, which are omitted from the input file.
 """
-function initializeSolve(optimizer::Optimizer)
+function initializeSolve(optimizer::SDPAFamily.Optimizer)
     if !optimizer.presolve
         filename = joinpath(optimizer.tempdir, "input.dat-s")
         file = open(filename, "w") do io

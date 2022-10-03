@@ -2,13 +2,13 @@ using SparseArrays
 export presolve
 
 """
-    presolve(optimizer::SDPAFamily.Optimizer{T}) where T
+    presolve(optimizer::SDPAFamily.Optimizer)
 
 Identifies linearly dependent constraints in the problem. This is done by a naive Gaussian elimination.
 
 Returns a vector with the indices of redundant constraints, which should be removed from the formulation. The rest of the constraints form a maximal linearly independent subset of the original set of constraints.
 """
-function presolve(optimizer::SDPAFamily.Optimizer{T}) where T
+function presolve(optimizer::SDPAFamily.Optimizer)
     start = time()
     totaldim = sum(abs.(optimizer.blockdims))
     F = spzeros(T, length(optimizer.b), totaldim^2)

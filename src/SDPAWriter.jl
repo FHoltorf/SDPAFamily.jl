@@ -3,8 +3,9 @@
 # Use of this source code is governed by an MIT-style license that can be found
 # in the LICENSE.md file or at https://opensource.org/licenses/MIT.
 
+# to do: fix documentation
+
 import MathOptInterface
-const MOI = MathOptInterface
 
 """
     AbstractSolverCommand
@@ -139,7 +140,7 @@ end
 Create a new Optimizer object.
 ## Arguments
  * `solver_command`: one of two things:
-   * A `String` of the full path of an AMPL-compatible executable
+   * A `String` of the full path of an SDPA-compatible executable
    * A function that takes takes a function as input, initializes any
      environment as needed, calls the input function with a path to the
      initialized executable, and then destructs the environment.
@@ -343,6 +344,4 @@ function MOI.get(model::Optimizer, attr::MOI.DualObjectiveValue)
     MOI.check_result_index_bounds(model, attr)
     # TODO(odow): replace this with the proper dual objective.
     return MOI.get(model, MOI.ObjectiveValue())
-end
-
 end

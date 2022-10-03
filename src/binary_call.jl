@@ -6,7 +6,7 @@ Calls the binary `sdpa_gmp` to solve SDPA-formatted problem specified in a .dat-
 
 This function returns `m` with solutions already populated from results in the output file.
 """
-function sdpa_gmp_binary_solve!(m::Optimizer, full_input_path::String, full_output_path::String; redundant_entries::Vector = [])
+function sdpa_gmp_binary_solve!(m::SDPAFamily.Optimizer, full_input_path::String, full_output_path::String; redundant_entries::Vector = [])
     read_path = full_output_path
     if m.use_WSL
         full_input_path = WSLize_path(full_input_path)
@@ -55,11 +55,12 @@ function sdpa_gmp_binary_solve!(m::Optimizer, full_input_path::String, full_outp
         end
     end
 
+    # need to adjust this
     read_results!(m, read_path, redundant_entries);
 end
 
 
-function get_params_path(optimizer::Optimizer{T}) where {T}
+function get_params_path(optimizer::SDPAFamily.Optimizer)
     # use custom params
     if optimizer.params isa String
         return optimizer.params
